@@ -18,7 +18,7 @@
 #include <stdio.h>
  
 
-/****************uart******************/
+/****************Baud Rate******************/
 
 #define BAUD 9600
 #define MYUBRR F_CPU/16/BAUD-1
@@ -45,7 +45,7 @@
 #define write_eeprom_word(address,value) eeprom_write_word ((uint16_t*)address,(uint16_t)value)
 #define update_eeprom_word(address,value) eeprom_update_word ((uint16_t*)address,(uint16_t)value)
 
-/***************************Intialization****************************/
+/***************************Intializations****************************/
 
 int BufferSize=5;
 char ReceivedByte[6];
@@ -58,7 +58,7 @@ unsigned int SendingPrice=0 ,size=1;
 unsigned int EEMEM  my_eeprom_array[12];
 unsigned int  ProductPrice[12];
 
-/********************************************************/
+/*************************Functions*******************************/
 
 void lcd4_out();
 void Lcd4_Port(char a);
@@ -76,7 +76,7 @@ void AdminPanel();
 int ReturnPrice(int [],int );
 void split(int number);
 
-/*******************uart*******************/
+/*******************UART*******************/
 
 void USART_Transmit( unsigned char data )
 {
@@ -98,7 +98,7 @@ void USART_Init( unsigned int baud )
 	UCSRC = (1<<URSEL)|(1<<USBS)|(3<<UCSZ0);
 }
 
-
+/*************************UART INTERRUPT*****************************/
 ISR(USART_RXC_vect)
 {
 	
@@ -160,6 +160,7 @@ int main(void)
 	PORTC |= (1<<column3);
 	PORTC |= (1<<column4);
 
+	/********************Reading Prices from EEPROM**********************/
 	int i;
 	for(i=0 ;i<=12;i++){
 		
@@ -173,7 +174,7 @@ int main(void)
 	while (1) 
     {
 		
-
+	/***********************Calling Admin Panel*************************/
 		keypad();
 		if(AdminPanelFlag==1)
 		{
@@ -191,11 +192,12 @@ int main(void)
 		click=0;
 		i=0;
 		
+		/****************If not Cancel pressed********************/
 		while(KeypadFlag!=15 ){
 
 			keypad();
 			
-			
+			/**********If Any number pressed*********/
 			if (click==1){
 				
 				Lcd4_Set_Cursor(2,(i));
@@ -208,6 +210,7 @@ int main(void)
 				i++;
 				click=0;
 			}
+			/**********If # pressed for clear*********/
 			else if(click==2){
 				Lcd4_Clear();
 				Lcd4_Write_String("Select Product");
@@ -215,12 +218,14 @@ int main(void)
 				click=0;
 			}
 			
+			/**********If (#&D) pressed for admin panel *********/
 			else if(AdminPanelFlag==1){
 				click=0;
 				KeypadFlag=0;
 				main();
 				
 			}
+			/**********If C pressed for cancel*********/
 			else if(KeypadFlag==12){
 				
 				click=0;
@@ -237,11 +242,12 @@ int main(void)
 			Lcd4_Clear();
 			Lcd4_Write_String("The Price is ");
 			
+			/**********take prices from EEPROM array*********/
 			int a=ProductPrice[ProductNo];
 			char buffer[10];
 			itoa(a,buffer,10);
 			
-			
+			/**********Print the Price*********/
 			Lcd4_Set_Cursor(2,0);
 			Lcd4_Write_String(buffer);
 			click=0;
@@ -249,21 +255,22 @@ int main(void)
 			KeypadFlag=0;
 			_delay_ms(1000);
 			
-			////conversion function
-			
-			//// enable coin function
-			USART_Transmit('\n');
+			/**********Sending Serial to the Payment Module to enable it*********/
 			
 			USART_Transmit('E');
 			
 			USART_Transmit('\n');
 			
 			_delay_ms(500);
-			//// send price function
+			
+	
 			SendingPrice=ProductPrice[ProductNo];
+			
+			/**********Split function to put the price in array and return the size of the array*********/
 			
 			split(SendingPrice);
 			
+			/**********Sending the price serially to the payment module*********/
 			for(i=0;i<size;i++)
 			{
 				while ( !( UCSRA & (1<<UDRE)) )
@@ -275,9 +282,10 @@ int main(void)
 				Lcd4_Clear();
 				Lcd4_Write_String("Enter Money");
 
+
 			while (!TimeOut)
 			{
-
+		/**********Receiving the Total price from the payment module and print it*********/
 					if(totalflag)
 					{
 						Lcd4_Set_Cursor(2,0);
@@ -290,6 +298,7 @@ int main(void)
 				
 				
 				keypad();
+			/**********if C Pressed for cancel and sending C char to payment module to disable*********/
 				if(KeypadFlag==12){
 					USART_Transmit('\n');
 					USART_Transmit('C');
@@ -301,10 +310,10 @@ int main(void)
 					break;
 				}
 				
-				
+			/**********if product price is received payment module send D from done*********/
 				if (DoneFlag)
 				{
-					
+			/**********Putting the demuxing values depend on the product number*********/
 					switch(ProductNo) {
 						case 1 :
 						MuxValue=0x10;
@@ -351,7 +360,7 @@ int main(void)
 				
 					_delay_ms(500);
 					
-					
+			/**********Moving motor*********/
 					PORTA = 0x01; //00000001
 					_delay_ms(800);
 
@@ -378,6 +387,7 @@ int main(void)
 				
 			}
 		
+				/**********if T is received from payment module it's connection Timeout*********/
 			if (TimeOut)
 			{
 				Lcd4_Clear();
@@ -693,6 +703,7 @@ void AdminPanel()
 		
 		keypad();
 		
+				/**********entring admin pass to the lcd and to EntringAdminPass array*********/
 		if (click==1){
 			
 			Lcd4_Set_Cursor(2,(i));
@@ -713,6 +724,7 @@ void AdminPanel()
 		}					
 	}
 	
+			/**********Checking if the password is correct or not*********/
 	for (int i=0;i<3;i++)
 	{
 		//keypad();
@@ -744,6 +756,7 @@ void AdminPanel()
 
 	while (flag==1)
 	{
+				/**********if C pressed Cancel*********/
 		if(KeypadFlag==12){
 			AdminPanelFlag=0;
 			flag=0;
@@ -753,6 +766,7 @@ void AdminPanel()
 		Lcd4_Write_String("A.Select Product");
 		
 		i=0;
+		/********when D is pressed then it's done ***********/
 		while(KeypadFlag!=15 ){
 
 			keypad();
@@ -762,7 +776,7 @@ void AdminPanel()
 					main();
 					break;
 				}
-			
+			/*********selecting product number**********/
 			if (click==1){
 				
 				Lcd4_Set_Cursor(2,(i));
@@ -811,6 +825,7 @@ void AdminPanel()
 					break;
 				}
 			
+			/**********admin enter the updated price*********/
 			if (click==1){
 				Lcd4_Set_Cursor(2,(i));
 				Lcd4_Write_Char(c);
@@ -840,7 +855,7 @@ void AdminPanel()
 				}		
 	}
 	Lcd4_Clear();
-
+			/*********update the price in the EEPROM **********/
 		UpdatePrice=ReturnPrice(EnteringPrice,i);
 	update_eeprom_word(&my_eeprom_array[ProductNo], UpdatePrice);
 	PORTD |= (1 << 5);
@@ -886,8 +901,7 @@ int ReturnPrice(int array[],int y)
 
 void split(int number)
 {
-
-	 size=1;
+			size=1;
 	 int counter=number;
 	 float num=number;
 	 while (counter/=10) size++;
@@ -903,4 +917,3 @@ void split(int number)
 	
 	size=size+1;
 }
-
